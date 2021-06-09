@@ -4,6 +4,9 @@ declare(strict_types=1);
 namespace MarcAndreAppel\FlysystemBackblaze;
 
 use BackblazeB2\Client;
+use BackblazeB2\Exceptions\B2Exception;
+use BackblazeB2\Exceptions\NotFoundException;
+use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Psr7;
 use InvalidArgumentException;
 use League\Flysystem\Adapter\AbstractAdapter;
@@ -16,7 +19,8 @@ class BackblazeAdapter extends AbstractAdapter
 
     public function __construct(
         protected Client $client,
-        protected string $bucketName, protected mixed $bucketId = null
+        protected string $bucketName,
+        protected mixed $bucketId = null
     ) {}
 
     public function has($path)
@@ -29,6 +33,10 @@ class BackblazeAdapter extends AbstractAdapter
             ]);
     }
 
+    /**
+     * @throws GuzzleException
+     * @throws B2Exception
+     */
     public function write($path, $contents, Config $config)
     {
         $file = $this->getClient()
@@ -42,6 +50,10 @@ class BackblazeAdapter extends AbstractAdapter
         return $this->getFileInfo($file);
     }
 
+    /**
+     * @throws GuzzleException
+     * @throws B2Exception
+     */
     public function writeStream($path, $resource, Config $config)
     {
         $file = $this->getClient()
@@ -55,6 +67,10 @@ class BackblazeAdapter extends AbstractAdapter
         return $this->getFileInfo($file);
     }
 
+    /**
+     * @throws GuzzleException
+     * @throws B2Exception
+     */
     public function update($path, $contents, Config $config)
     {
         $file = $this->getClient()
@@ -68,6 +84,10 @@ class BackblazeAdapter extends AbstractAdapter
         return $this->getFileInfo($file);
     }
 
+    /**
+     * @throws GuzzleException
+     * @throws B2Exception
+     */
     public function updateStream($path, $resource, Config $config)
     {
         $file = $this->getClient()
@@ -81,14 +101,20 @@ class BackblazeAdapter extends AbstractAdapter
         return $this->getFileInfo($file);
     }
 
+    /**
+     * @throws GuzzleException
+     * @throws B2Exception
+     * @throws NotFoundException
+     */
     public function read($path)
     {
-        $file        = $this->getClient()
+        $file = $this->getClient()
             ->getFile([
                 'BucketId'   => $this->bucketId,
                 'BucketName' => $this->bucketName,
                 'FileName'   => $path,
             ]);
+
         $fileContent = $this->getClient()
             ->download([
                 'FileId' => $file->getId(),
@@ -99,7 +125,7 @@ class BackblazeAdapter extends AbstractAdapter
 
     public function readStream($path)
     {
-        $stream   = Psr7\stream_for();
+        $stream   = Psr7\Utils::streamFor();
         $download = $this->getClient()
             ->download([
                 'BucketId'   => $this->bucketId,
@@ -111,7 +137,7 @@ class BackblazeAdapter extends AbstractAdapter
 
         try {
             $resource = Psr7\StreamWrapper::getResource($stream);
-        } catch (InvalidArgumentException $e) {
+        } catch (InvalidArgumentException) {
             return false;
         }
 
@@ -123,6 +149,10 @@ class BackblazeAdapter extends AbstractAdapter
         return false;
     }
 
+    /**
+     * @throws GuzzleException
+     * @throws B2Exception
+     */
     public function copy($path, $newPath)
     {
         return $this->getClient()
@@ -134,6 +164,11 @@ class BackblazeAdapter extends AbstractAdapter
             ]);
     }
 
+    /**
+     * @throws GuzzleException
+     * @throws NotFoundException
+     * @throws B2Exception
+     */
     public function delete($path)
     {
         return $this->getClient()
@@ -144,6 +179,11 @@ class BackblazeAdapter extends AbstractAdapter
             ]);
     }
 
+    /**
+     * @throws GuzzleException
+     * @throws B2Exception
+     * @throws NotFoundException
+     */
     public function deleteDir($path)
     {
         return $this->getClient()
@@ -154,28 +194,37 @@ class BackblazeAdapter extends AbstractAdapter
             ]);
     }
 
-    public function createDir(string $path, Config $config)
+    /**
+     * @throws GuzzleException
+     * @throws B2Exception
+     */
+    public function createDir($dirname, Config $config)
     {
         return $this->getClient()
             ->upload([
                 'BucketId'   => $this->bucketId,
                 'BucketName' => $this->bucketName,
-                'FileName'   => $path,
+                'FileName'   => $dirname,
                 'Body'       => '',
             ]);
     }
 
-    public function getMetadata(string $path): bool
+    public function getMetadata($path): bool
     {
         return false;
     }
 
-    public function getMimetype(string $path): bool
+    public function getMimetype($path): bool
     {
         return false;
     }
 
-    public function getSize(string $path): array
+    /**
+     * @throws GuzzleException
+     * @throws NotFoundException
+     * @throws B2Exception
+     */
+    public function getSize($path): array
     {
         $file = $this->getClient()
             ->getFile([
@@ -187,6 +236,11 @@ class BackblazeAdapter extends AbstractAdapter
         return $this->getFileInfo($file);
     }
 
+    /**
+     * @throws GuzzleException
+     * @throws B2Exception
+     * @throws NotFoundException
+     */
     public function getTimestamp($path): array
     {
         $file = $this->getClient()
@@ -204,7 +258,11 @@ class BackblazeAdapter extends AbstractAdapter
         return $this->client;
     }
 
-    public function listContents(string $directory = '', bool $recursive = false): array
+    /**
+     * @throws GuzzleException
+     * @throws B2Exception
+     */
+    public function listContents($directory = '', $recursive = false): array
     {
         $fileObjects = $this->getClient()
             ->listFiles([
