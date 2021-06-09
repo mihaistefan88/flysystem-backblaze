@@ -295,7 +295,7 @@ class BackblazeAdapter extends AbstractAdapter
         return [
             'type'      => 'file',
             'path'      => $file->getName(),
-            'timestamp' => substr($file->getUploadTimestamp(), 0, -3),
+            'timestamp' => substr((string) $file->getUploadTimestamp() ?? '', 0, -3),
             'size'      => $file->getSize(),
         ];
     }
