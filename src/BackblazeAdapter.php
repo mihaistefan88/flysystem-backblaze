@@ -6,29 +6,38 @@ namespace MarcAndreAppel\FlysystemBackblaze;
 use BackblazeB2\Client;
 use BackblazeB2\Exceptions\B2Exception;
 use BackblazeB2\Exceptions\NotFoundException;
+use BackblazeB2\File;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Psr7;
 use InvalidArgumentException;
-use League\Flysystem\Adapter\AbstractAdapter;
-use League\Flysystem\Adapter\Polyfill\NotSupportingVisibilityTrait;
 use League\Flysystem\Config;
+use League\Flysystem\FileAttributes;
+use League\Flysystem\FilesystemAdapter;
+use League\Flysystem\FilesystemException;
+use League\Flysystem\InvalidVisibilityProvided;
+use League\Flysystem\UnableToCheckExistence;
+use League\Flysystem\UnableToCreateDirectory;
+use League\Flysystem\UnableToDeleteDirectory;
+use League\Flysystem\UnableToMoveFile;
+use League\Flysystem\UnableToRetrieveMetadata;
+use LogicException;
 
-class BackblazeAdapter extends AbstractAdapter
+class BackblazeAdapter implements FilesystemAdapter
 {
-    use NotSupportingVisibilityTrait;
-
     public function __construct(
         protected Client $client,
         protected string $bucketName,
-        protected mixed $bucketId = null
-    ) {}
+        protected mixed  $bucketId = null
+    )
+    {
+    }
 
-    public function has($path)
+    public function fileExists(string $path): bool
     {
         return $this->getClient()
             ->fileExists([
-                'FileName'   => $path,
-                'BucketId'   => $this->bucketId,
+                'FileName' => $path,
+                'BucketId' => $this->bucketId,
                 'BucketName' => $this->bucketName,
             ]);
     }
@@ -37,48 +46,44 @@ class BackblazeAdapter extends AbstractAdapter
      * @throws GuzzleException
      * @throws B2Exception
      */
-    public function write($path, $contents, Config $config)
+    public function write(string $path, string $contents, Config $config): void
     {
         $file = $this->getClient()
             ->upload([
-                'BucketId'   => $this->bucketId,
+                'BucketId' => $this->bucketId,
                 'BucketName' => $this->bucketName,
-                'FileName'   => $path,
-                'Body'       => $contents,
+                'FileName' => $path,
+                'Body' => $contents,
             ]);
-
-        return $this->getFileInfo($file);
     }
 
     /**
      * @throws GuzzleException
      * @throws B2Exception
      */
-    public function writeStream($path, $resource, Config $config)
+    public function writeStream(string $path, mixed $resource, Config $config): void
     {
-        $file = $this->getClient()
+        $this->getClient()
             ->upload([
-                'BucketId'   => $this->bucketId,
+                'BucketId' => $this->bucketId,
                 'BucketName' => $this->bucketName,
-                'FileName'   => $path,
-                'Body'       => $resource,
+                'FileName' => $path,
+                'Body' => $resource,
             ]);
-
-        return $this->getFileInfo($file);
     }
 
     /**
      * @throws GuzzleException
      * @throws B2Exception
      */
-    public function update($path, $contents, Config $config)
+    public function update(string $path, string $contents, Config $config): array
     {
         $file = $this->getClient()
             ->upload([
-                'BucketId'   => $this->bucketId,
+                'BucketId' => $this->bucketId,
                 'BucketName' => $this->bucketName,
-                'FileName'   => $path,
-                'Body'       => $contents,
+                'FileName' => $path,
+                'Body' => $contents,
             ]);
 
         return $this->getFileInfo($file);
@@ -88,14 +93,14 @@ class BackblazeAdapter extends AbstractAdapter
      * @throws GuzzleException
      * @throws B2Exception
      */
-    public function updateStream($path, $resource, Config $config)
+    public function updateStream(string $path, mixed $resource, Config $config): array
     {
         $file = $this->getClient()
             ->upload([
-                'BucketId'   => $this->bucketId,
+                'BucketId' => $this->bucketId,
                 'BucketName' => $this->bucketName,
-                'FileName'   => $path,
-                'Body'       => $resource,
+                'FileName' => $path,
+                'Body' => $resource,
             ]);
 
         return $this->getFileInfo($file);
@@ -106,32 +111,28 @@ class BackblazeAdapter extends AbstractAdapter
      * @throws B2Exception
      * @throws NotFoundException
      */
-    public function read($path)
+    public function read(string $path): string
     {
-        $file = $this->getClient()
-            ->getFile([
-                'BucketId'   => $this->bucketId,
-                'BucketName' => $this->bucketName,
-                'FileName'   => $path,
-            ]);
+        $file = $this->getFile($path);
 
         $fileContent = $this->getClient()
             ->download([
                 'FileId' => $file->getId(),
             ]);
 
-        return ['contents' => $fileContent];
+        /** @var string $fileContent */
+        return $fileContent;
     }
 
-    public function readStream($path)
+    public function readStream(string $path): mixed
     {
-        $stream   = Psr7\Utils::streamFor();
+        $stream = Psr7\Utils::streamFor();
         $download = $this->getClient()
             ->download([
-                'BucketId'   => $this->bucketId,
+                'BucketId' => $this->bucketId,
                 'BucketName' => $this->bucketName,
-                'FileName'   => $path,
-                'SaveAs'     => $stream,
+                'FileName' => $path,
+                'SaveAs' => $stream,
             ]);
         $stream->seek(0);
 
@@ -144,23 +145,29 @@ class BackblazeAdapter extends AbstractAdapter
         return $download === true ? ['stream' => $resource] : false;
     }
 
-    public function rename($path, $newpath)
+    /**
+     * @throws B2Exception
+     * @throws NotFoundException
+     * @throws GuzzleException
+     */
+    public function move(string $path, string $newPath, Config $config): void
     {
-        return false;
+        $this->copy($path, $newPath, $config);
+        $this->delete($path);
     }
 
     /**
      * @throws GuzzleException
      * @throws B2Exception
      */
-    public function copy($path, $newPath)
+    public function copy(string $path, string $newPath, Config $config): void
     {
-        return $this->getClient()
+        $this->getClient()
             ->upload([
-                'BucketId'   => $this->bucketId,
+                'BucketId' => $this->bucketId,
                 'BucketName' => $this->bucketName,
-                'FileName'   => $newPath,
-                'Body'       => @file_get_contents($path),
+                'FileName' => $newPath,
+                'Body' => @file_get_contents($path),
             ]);
     }
 
@@ -169,14 +176,27 @@ class BackblazeAdapter extends AbstractAdapter
      * @throws NotFoundException
      * @throws B2Exception
      */
-    public function delete($path)
+    public function delete(string $path): void
     {
-        return $this->getClient()
+        $this->getClient()
             ->deleteFile([
-                'FileName'   => $path,
-                'BucketId'   => $this->bucketId,
+                'FileName' => $path,
+                'BucketId' => $this->bucketId,
                 'BucketName' => $this->bucketName,
             ]);
+    }
+
+    /**
+     * @param string $path
+     * @return void
+     * @throws B2Exception
+     * @throws GuzzleException
+     * @throws NotFoundException
+     * @obsolete
+     */
+    public function deleteDir(string $path): void
+    {
+        $this->deleteDirectory($path);
     }
 
     /**
@@ -184,39 +204,70 @@ class BackblazeAdapter extends AbstractAdapter
      * @throws B2Exception
      * @throws NotFoundException
      */
-    public function deleteDir($path)
+    public function deleteDirectory(string $path): void
     {
-        return $this->getClient()
+        $this->getClient()
             ->deleteFile([
-                'FileName'   => $path,
-                'BucketId'   => $this->bucketId,
+                'FileName' => $path,
+                'BucketId' => $this->bucketId,
                 'BucketName' => $this->bucketName,
             ]);
+    }
+
+    /**
+     * @param string $directoryName
+     * @param Config $config
+     * @return void
+     * @throws B2Exception
+     * @throws GuzzleException
+     * @obsolete
+     */
+    public function createDir(string $directoryName, Config $config): void
+    {
+        $this->createDirectory($directoryName, $config);
     }
 
     /**
      * @throws GuzzleException
      * @throws B2Exception
      */
-    public function createDir($dirname, Config $config)
+    public function createDirectory(string $directoryName, Config $config): void
     {
-        return $this->getClient()
+        $this->getClient()
             ->upload([
-                'BucketId'   => $this->bucketId,
+                'BucketId' => $this->bucketId,
                 'BucketName' => $this->bucketName,
-                'FileName'   => $dirname,
-                'Body'       => '',
+                'FileName' => $directoryName,
+                'Body' => '',
             ]);
     }
 
-    public function getMetadata($path): bool
+    /**
+     * @param string $path
+     * @return FileAttributes
+     *
+     * @throws B2Exception
+     * @throws GuzzleException
+     * @throws NotFoundException
+     * @deprecated by $this->mimeType($path), $this->fileSize($path), ...
+     */
+    public function getMetadata(string $path): FileAttributes
     {
-        return false;
+        return $this->attributes($path);
     }
 
-    public function getMimetype($path): bool
+    /**
+     * @param string $path
+     * @return bool
+     *
+     * @throws B2Exception
+     * @throws GuzzleException
+     * @throws NotFoundException
+     * @deprecated by $this->mimeType($path)
+     */
+    public function getMimetype(string $path): string
     {
-        return false;
+        return $this->mimeType($path)->mimeType();
     }
 
     /**
@@ -224,16 +275,9 @@ class BackblazeAdapter extends AbstractAdapter
      * @throws NotFoundException
      * @throws B2Exception
      */
-    public function getSize($path): array
+    public function getSize(string $path): array
     {
-        $file = $this->getClient()
-            ->getFile([
-                'FileName'   => $path,
-                'BucketId'   => $this->bucketId,
-                'BucketName' => $this->bucketName,
-            ]);
-
-        return $this->getFileInfo($file);
+        return $this->getFileInfo($path);
     }
 
     /**
@@ -245,15 +289,117 @@ class BackblazeAdapter extends AbstractAdapter
     {
         $file = $this->getClient()
             ->getFile([
-                'FileName'   => $path,
-                'BucketId'   => $this->bucketId,
+                'FileName' => $path,
+                'BucketId' => $this->bucketId,
                 'BucketName' => $this->bucketName,
             ]);
 
         return $this->getFileInfo($file);
     }
 
-    public function getClient(): Client
+    /**
+     * Limited information by B2 package.
+     *
+     * @throws GuzzleException
+     * @throws B2Exception
+     */
+    public function listContents(string $directory = '', bool $recursive = false): array
+    {
+        $fileObjects = $this->getClient()
+            ->listFiles([
+                'BucketId' => $this->bucketId,
+                'BucketName' => $this->bucketName,
+            ]);
+
+        if ($recursive === true && $directory === '') {
+            $regex = '/^.*$/';
+        } elseif ($recursive === true && $directory !== '') {
+            $regex = '/^' . preg_quote($directory) . '\/.*$/';
+        } elseif ($recursive === false && $directory === '') {
+            $regex = '/^(?!.*\\/).*$/';
+        } elseif ($recursive === false && $directory !== '') {
+            $regex = '/^' . preg_quote($directory) . '\/(?!.*\\/).*$/';
+        } else {
+            throw new InvalidArgumentException();
+        }
+        $fileObjects = array_filter($fileObjects, function ($fileObject) use ($regex) {
+            return 1 === preg_match($regex, $fileObject->getName());
+        });
+
+        $normalized = array_map(function ($fileObject) {
+            return $this->attributes($fileObject);
+        }, $fileObjects);
+
+        return array_values($normalized);
+    }
+
+    /**
+     * @throws FilesystemException
+     * @throws UnableToCheckExistence
+     */
+    public function directoryExists(string $path): bool
+    {
+        return $this->fileExists($path);
+    }
+
+    /**
+     * Get the visibility of a file.
+     *
+     * @param string $path
+     *
+     * @throws LogicException
+     */
+    public function visibility(string $path): FileAttributes
+    {
+        throw new LogicException(get_class($this) . ' does not support visibility. Path: ' . $path);
+    }
+
+    /**
+     * Set the visibility for a file.
+     *
+     * @param string $path
+     * @param string $visibility
+     *
+     * @throws LogicException
+     */
+    public function setVisibility(string $path, string $visibility): void
+    {
+        throw new LogicException(get_class($this) . ' does not support visibility. Path: ' . $path . ', visibility: ' . $visibility);
+    }
+
+    /**
+     * @throws GuzzleException
+     * @throws NotFoundException
+     * @throws B2Exception
+     */
+    public function mimeType(string $path): FileAttributes
+    {
+        return $this->attributes($path);
+    }
+
+    /**
+     * @throws GuzzleException
+     * @throws NotFoundException
+     * @throws B2Exception
+     */
+    public function lastModified(string $path): FileAttributes
+    {
+        return $this->attributes($path);
+    }
+
+    /**
+     * @param string $path
+     * @return FileAttributes
+     * @throws B2Exception
+     * @throws GuzzleException
+     * @throws NotFoundException
+     */
+    public function fileSize(string $path): FileAttributes
+    {
+        return $this->attributes($path);
+    }
+
+    protected function getClient(): Client
     {
         return $this->client;
     }
@@ -261,42 +407,58 @@ class BackblazeAdapter extends AbstractAdapter
     /**
      * @throws GuzzleException
      * @throws B2Exception
+     * @throws NotFoundException
      */
-    public function listContents($directory = '', $recursive = false): array
+    protected function getFile(string $path): File
     {
-        $fileObjects = $this->getClient()
-            ->listFiles([
-                'BucketId'   => $this->bucketId,
+        return $this->getClient()
+            ->getFile([
+                'FileName' => $path,
+                'BucketId' => $this->bucketId,
                 'BucketName' => $this->bucketName,
             ]);
-        if ($recursive === true && $directory === '') {
-            $regex = '/^.*$/';
-        } elseif ($recursive === true && $directory !== '') {
-            $regex = '/^'.preg_quote($directory).'\/.*$/';
-        } elseif ($recursive === false && $directory === '') {
-            $regex = '/^(?!.*\\/).*$/';
-        } elseif ($recursive === false && $directory !== '') {
-            $regex = '/^'.preg_quote($directory).'\/(?!.*\\/).*$/';
-        } else {
-            throw new InvalidArgumentException();
-        }
-        $fileObjects = array_filter($fileObjects, function ($fileObject) use ($regex) {
-            return 1 === preg_match($regex, $fileObject->getName());
-        });
-        $normalized  = array_map(function ($fileObject) {
-            return $this->getFileInfo($fileObject);
-        }, $fileObjects);
-
-        return array_values($normalized);
     }
 
-    protected function getFileInfo($file): array
+    /**
+     * Returns an array with all information about the file.
+     *
+     * @param string|File $file If not an instance of File, try to load an instance from B2.
+     * @throws GuzzleException
+     * @throws NotFoundException
+     * @throws B2Exception
+     */
+    public function getFileInfo(string|File $file): array
     {
+        if (!$file instanceof File) {
+            $file = $this->getFile($file);
+        }
+
         return [
-            'type'      => 'file',
-            'path'      => $file->getName(),
-            'timestamp' => substr((string) $file->getUploadTimestamp() ?? '', 0, -3),
-            'size'      => $file->getSize(),
+            'type' => 'file',
+            'path' => $file->getName(),
+            'timestamp' => substr($file->getUploadTimestamp() ?? '', 0, -3),
+            'size' => $file->getSize(),
         ];
+    }
+
+    /**
+     * @throws GuzzleException
+     * @throws B2Exception
+     * @throws NotFoundException
+     */
+    protected function attributes(string|File $file): FileAttributes
+    {
+        if (!$file instanceof File) {
+            $file = $this->getFile($file);
+        }
+
+        return new FileAttributes(
+            path: $file->getName(),
+            fileSize: $file->getSize(),
+            visibility: null,
+            lastModified: $file->getUploadTimestamp(),
+            mimeType: $file->getType(),
+            extraMetadata: []
+        );
     }
 }
