@@ -1,4 +1,4 @@
-# Backblaze Flysystem Driver
+# Backblaze B2 Flysystem Driver
 
 [![Author](http://img.shields.io/badge/author-@marc_andre-blue.svg?style=flat-square)](https://twitter.com/marc_andre)
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/marcandreappel/flysystem-backblaze.svg?style=flat-square)](https://packagist.org/packages/marcandreappel/flysystem-backblaze)
