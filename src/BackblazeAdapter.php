@@ -150,25 +150,33 @@ class BackblazeAdapter implements FilesystemAdapter
      * @throws NotFoundException
      * @throws GuzzleException
      */
-    public function move(string $path, string $newPath, Config $config): void
+    public function move(string $source, string $destination, Config $config): void
     {
-        $this->copy($path, $newPath, $config);
-        $this->delete($path);
+        $this->copy($source, $destination, $config);
+        $this->delete($source);
     }
 
     /**
      * @throws GuzzleException
      * @throws B2Exception
      */
-    public function copy(string $path, string $newPath, Config $config): void
+    public function copy(string $source, string $destination, Config $config): void
     {
-        $this->getClient()
-            ->upload([
-                'BucketId' => $this->bucketId,
-                'BucketName' => $this->bucketName,
-                'FileName' => $newPath,
-                'Body' => @file_get_contents($path),
-            ]);
+        $options = [
+            'BucketId' => $this->bucketId,
+            'BucketName' => $this->bucketName,
+            'FileName' => $source,
+            'SaveAs' => $destination,
+        ];
+
+        if ($destinationBucketId = $config->get('DestinationBucketId', false)) {
+            $options = array_merge($options, ['DestinationBucketId' => $destinationBucketId]);
+        }
+        if ($destinationBucketName = $config->get('DestinationBucketName', false)) {
+            $options = array_merge($options, ['DestinationBucketName' => $destinationBucketName]);
+        }
+
+        $this->getClient()->copy($options);
     }
 
     /**
@@ -178,12 +186,13 @@ class BackblazeAdapter implements FilesystemAdapter
      */
     public function delete(string $path): void
     {
-        $this->getClient()
-            ->deleteFile([
-                'FileName' => $path,
-                'BucketId' => $this->bucketId,
-                'BucketName' => $this->bucketName,
-            ]);
+        $options = [
+            'FileName' => $path,
+            'BucketId' => $this->bucketId,
+            'BucketName' => $this->bucketName,
+        ];
+
+        $this->getClient()->deleteFile($options);
     }
 
     /**
