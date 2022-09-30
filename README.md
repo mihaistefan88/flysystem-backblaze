@@ -11,13 +11,11 @@ It uses the [Backblaze B2 SDK](https://github.com/cwhite92/b2-sdk-php) to commun
 
 ## Installation
 Install the package with Composer:
-
 ```shell
 composer require marcandreappel/flysystem-backblaze
 ```
 
 For legacy systems (league/flysystem < v3.0):
-
 ```shell
 composer require marcandreappel/flysystem-backblaze:^1.8
 ```
@@ -57,12 +55,11 @@ For legacy systems, [consult the documentation for version 1](https://flysystem.
 If you discover any security related issues, please open a ticket on the issue tracker.
 
 ## Credits
-- [Ramesh Mhetre][https://github.com/mhetreramesh]
+- [Ramesh Mhetre](https://github.com/mhetreramesh)
 - [Mark Lambley](https://github.com/mlambley)
-- [All Contributors][https://github.com/gliterd/flysystem-backblaze/graphs/contributors]
+- [All Contributors](https://github.com/gliterd/flysystem-backblaze/graphs/contributors)
 
 ## License
-
 The MIT License (MIT). Please [read the license file](LICENSE.md) for more information.
 
 [ico-license]: https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square
