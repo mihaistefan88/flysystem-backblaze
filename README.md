@@ -5,21 +5,24 @@
 [![Software License][ico-license]](LICENSE.md)
 [![Total Downloads](https://img.shields.io/packagist/dt/marcandreappel/flysystem-backblaze.svg?style=flat-square)](https://packagist.org/packages/marcandreappel/flysystem-backblaze)
 
-Visit (https://secure.backblaze.com/b2_buckets.htm) and get your account id and application key.
-
-The Backblaze adapter makes it possible to use the Flysystem filesystem abstraction library with Backblaze. 
+## Description
+This Backblaze adapter makes it possible to use the Flysystem filesystem abstraction library with Backblaze.\
 It uses the [Backblaze B2 SDK](https://github.com/cwhite92/b2-sdk-php) to communicate with the API.
 
-## Install
+## Installation
+Install the package with Composer:
 
-Via Composer
-
-```bash
+```shell
 composer require marcandreappel/flysystem-backblaze
 ```
 
-## Usage
+For legacy systems (league/flysystem < v3.0):
 
+```shell
+composer require marcandreappel/flysystem-backblaze:^1.8
+```
+
+## Usage
 ```php
 use MarcAndreAppel\FlysystemBackblaze\BackblazeAdapter;
 use League\Flysystem\Filesystem;
@@ -32,6 +35,8 @@ $filesystem = new Filesystem($adapter);
 ```
 
 ## Using ApplicationKey instead of MasterKey
+Visit [your Backblaze B2 dashboard](https://secure.backblaze.com/b2_buckets.htm) to get your account id and application
+key.
 
 If you specify only the `$bucketName` when creating the BackblazeAdapter, your `$applicationKey` must be the **master key**.
 However, if you specify both bucket name and bucket id, you can use an application key.
@@ -43,20 +48,21 @@ $adapter = new BackblazeAdapter($client, $bucketName, $bucketId);
 ```
 
 ## Documentation
-Here is the [complete guide](https://flysystem.thephpleague.com/docs/usage/filesystem-api/) of all available options.
+Here is the [complete Flysystem guide](https://flysystem.thephpleague.com/docs/usage/filesystem-api/) with all available
+options.
+
+For legacy systems, [consult the documentation for version 1](https://flysystem.thephpleague.com/v1/docs/).
 
 ## Security
-
 If you discover any security related issues, please open a ticket on the issue tracker.
 
 ## Credits
-
-- [Ramesh Mhetre][link-author]
-- [All Contributors][link-contributors]
+- [Ramesh Mhetre][https://github.com/mhetreramesh]
+- [Mark Lambley](https://github.com/mlambley)
+- [All Contributors][https://github.com/gliterd/flysystem-backblaze/graphs/contributors]
 
 ## License
 
-The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
+The MIT License (MIT). Please [read the license file](LICENSE.md) for more information.
 
 [ico-license]: https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square
-[link-contributors]: ../../contributors
