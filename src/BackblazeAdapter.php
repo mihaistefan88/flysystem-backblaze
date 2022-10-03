@@ -23,7 +23,9 @@ class BackblazeAdapter implements FilesystemAdapter
         protected Client $client,
         protected string $bucketName,
         protected mixed  $bucketId = null
-    ) {}
+    )
+    {
+    }
 
     public function fileExists(string $path): bool
     {
@@ -63,7 +65,7 @@ class BackblazeAdapter implements FilesystemAdapter
         $streamMetaData = stream_get_meta_data($contents);
 
         if ($this->isLargeFile(filesize($streamMetaData['uri']))) {
-            $this->uploadLargeFile($path, $streamMetaData['uri']);
+            $this->uploadLargeFile($path, str_replace($path, '', $streamMetaData['uri']));
         } else {
             $this->getClient()->upload([
                 'BucketId' => $this->bucketId,
@@ -86,7 +88,7 @@ class BackblazeAdapter implements FilesystemAdapter
             'BucketId' => $this->bucketId,
             'BucketName' => $this->bucketName,
             'FileName' => $fileName,
-            'FilePath' => str_replace($fileName, '', $path),
+            'FilePath' => $path,
         ]);
     }
 
