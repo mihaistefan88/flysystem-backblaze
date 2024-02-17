@@ -42,7 +42,7 @@ class BackblazeAdapter implements FilesystemAdapter
      */
     public function write(string $path, string $contents, Config $config): void
     {
-        if ($this->isLargeFile(filesize($contents))) {
+        if ($this->isLargeFile(strlen($contents))) {
             $this->uploadLargeFile($path, $contents, $config);
         } else {
             $this->getClient()->upload([
