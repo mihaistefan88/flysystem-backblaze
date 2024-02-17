@@ -1,5 +1,5 @@
 {
-    "name": "marcandreappel/flysystem-backblaze",
+    "name": "mihaistefan88/flysystem-backblaze",
     "type": "library",
     "description": "Backblaze adapter for the flysystem filesystem abstraction library",
     "keywords": ["flysystem", "filesystem", "api", "backblaze", "client"],
